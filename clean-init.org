@@ -55,7 +55,7 @@ undo-limit is set really, really high because this isn't 1985 anymore and I don'
   (use-package evil
       :init
       (setq evil-want-fine-undo t
-            undo-limit 9000
+            undo-limit 900000
             evil-want-integration t
             evil-want-keybinding nil
   	  evil-undo-system 'undo-fu)
