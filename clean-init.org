@@ -94,7 +94,7 @@ I'd like to configure this some more
 #+begin_src emacs-lisp
   (use-package doom-modeline
     :custom
-    (doom-modeline-height 15)
+    (doom-modeline-height 20)
     (doom-modeline-hud t)
     :init (doom-modeline-mode 1))
 #+end_src
@@ -115,7 +115,8 @@ Not sure how I'm going to use this (or if I'm going to use it at all) but throwi
   (setq which-key-idle-delay 0.3))
 #+end_src
 *** Hydra
-Provides transient keybindings. This seems very useful, need to investigate more. Already getting a lot of use out the sample one. 
+Provides transient keybindings. This seems very useful, need to investigate more. Already getting a lot of use out the sample one.
+
 #+begin_src emacs-lisp
 (use-package hydra)
 
@@ -126,7 +127,8 @@ Provides transient keybindings. This seems very useful, need to investigate more
   ("f" nil "finished" :exit t))
 #+end_src
 *** Flycheck
-Need to investigate this further but it's useful for at least basic syntax
+Not fully configured yet; but this will get initial syntax checking done.
+
 #+begin_src emacs-lisp
 (use-package flycheck
   :diminish flycheck-mode
@@ -134,7 +136,8 @@ Need to investigate this further but it's useful for at least basic syntax
   (flycheck-mode t))
 #+end_src
 *** Helpful
-Code pulled from dirty-init.el. Investigate if I really want this
+Code pulled from dirty-init.el based from EFS. I don't use counsel anymore, so I need to investigate if I still want this.
+
 #+begin_src emacs-lisp
 ;; (straight-use-package 'helpful
 ;;   :ensure t
@@ -205,23 +208,25 @@ TODO: Work in progress
 Org-autocomplete structure templates. typing < and then a two-letter code will fill in the rest of that entry, eg <el will replace with src emacs-lisp
 
 #+begin_src emacs-lisp
-  (with-eval-after-load 'org
-    (org-babel-do-load-languages
-     'org-babel-load-languages
-     '((emacs-lisp . t))))
-    
-    (require 'org-tempo)
-    (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-    (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
-    (add-to-list 'org-structure-template-alist '("fi" . "src fish"))
-    (add-to-list 'org-structure-template-alist '("co" . "src conf-unix"))
-    (add-to-list 'org-structure-template-alist '("cs" . "src css"))
-    (add-to-list 'org-structure-template-alist '("js" . "src json"))
-    (add-to-list 'org-structure-template-alist '("sd" . "src systemd"))
-    (add-to-list 'org-structure-template-alist '("dc" . "docker-compose-mode"))
+    (with-eval-after-load 'org
+      (org-babel-do-load-languages
+       'org-babel-load-languages
+       '((emacs-lisp . t))))
+
+  (require 'org-tempo)
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
+  (add-to-list 'org-structure-template-alist '("fi" . "src fish"))
+  (add-to-list 'org-structure-template-alist '("co" . "src conf-unix"))
+  (add-to-list 'org-structure-template-alist '("cs" . "src css"))
+  (add-to-list 'org-structure-template-alist '("js" . "src json"))
+  (add-to-list 'org-structure-template-alist '("sd" . "src systemd"))
+  (add-to-list 'org-structure-template-alist '("dc" ."docker-compose-mode"))
 
 #+end_src
 *** Org-Roam
+This is still a work in progress. I'm transitioning (heh) to org-roam and am working on building this environment.
+
 Binds are all declared later.
 #+begin_src emacs-lisp
   (use-package org-roam
