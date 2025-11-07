@@ -18,11 +18,11 @@ This stuff goes at the top of the file. Just yak-shaving.
 Disables use-package. This block tangles to early-init.el
 #+begin_src emacs-lisp :tangle ~/emacs-forge/early-init.el :mkdirp yes
   ;;; -*- lexical-binding: t -*-
-  (setq package-enable-at-startup-nil)
+  (setq package-enable-at-startup nil)
 #+end_src
 *** Bootstrap code
-Code required to set-up and use straight.el instead of use-package
-Installs use-package (package configuration I'm used to) but then has any use-package calls made to straight.el instead.
+Code required to set-up and use straight.el instead of use-package. 
+Installs use-package (package configuration syntax I'm used to) but then has any use-package calls made to straight.el instead.
 #+begin_src emacs-lisp
   (defvar bootstrap-version)
    (let ((bootstrap-file
@@ -70,7 +70,8 @@ undo-limit is set really, really high because this isn't 1985 anymore and I don'
     (use-package evil-goggles)
 #+end_src
 *** Vertico/Swiper/Orderless/Consult/Marginalia
-Completion Stack Plus Swiper
+Completion Stack Plus Swiper.
+
 I use swiper since it seems like you need to do extra work to make consult-line work like swiper. Future task TODO.
 #+begin_src emacs-lisp
   (use-package swiper)
@@ -98,14 +99,6 @@ I'd like to configure this some more
     (doom-modeline-hud t)
     :init (doom-modeline-mode 1))
 #+end_src
-*** Dashboard
-Not sure how I'm going to use this (or if I'm going to use it at all) but throwing it in now to test
-#+begin_src emacs-lisp
-  (use-package dashboard
-    :ensure t
-    :init
-    (dashboard-setup-startup-hook))
-#+end_src
 *** Which-key
 #+begin_src emacs-lisp
 (use-package which-key
@@ -127,7 +120,7 @@ Provides transient keybindings. This seems very useful, need to investigate more
   ("f" nil "finished" :exit t))
 #+end_src
 *** Flycheck
-Not fully configured yet; but this will get initial syntax checking done.
+Not fully configured yet; but this will get basic syntax checking done.
 
 #+begin_src emacs-lisp
 (use-package flycheck
@@ -152,13 +145,19 @@ Code pulled from dirty-init.el based from EFS. I don't use counsel anymore, so I
 #+end_src
 *** Magit
 Is it Mag-it or Maggot?
+
+Throws an error when loaded right now. Too tired to figure out what's going on so will just disable it for now and use git in terminal.
 #+begin_src emacs-lisp
+;; (use-package magit)
 #+end_src
 *** Assorted other packages
 #+begin_src emacs-lisp
   (use-package vterm)
   (use-package fish-mode)
-  (use-package smartparens)
+  (use-package smartparens
+    :hook
+    (prog-mode . smartparens-mode))
+  (require 'smartparens-config)
   (use-package general) ;; for binding. binds declared later in the file
   (use-package docker-compose-mode)
   (use-package systemd)
@@ -302,8 +301,11 @@ Yeah, it's catppuccin. I'm basic.
 #+end_src
 *** Fonts and related
 Set font to Fira Mono. Install all-the-icons (if not found)
-TODO: Variable-width-font
+
+TODO: Variable-width-font. I need to learn how stock emacs sets fonts since I don't use doom anymore.
+
 TODO: Do I need different settings for laptop vs desktop?
+
 #+begin_src emacs-lisp
 (set-face-attribute 'default nil :font "Fira Mono" :height 110)
 
@@ -382,7 +384,7 @@ These are keybinds I want to work no matter what mode I'm in. As such, they're s
 #+begin_src emacs-lisp
   (general-define-key
    :keymaps 'global
-   "M-y" 'consult-yank-pop ;; paste text
+   "M-y" 'consult-yank-pop ;; paste (text)
    "M-Y" 'yank-media ;; paste (media)
    "M-w" 'kill-ring-save ;; copy
    "M-W" 'kill-region ;; cut (selection)
