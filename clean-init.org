@@ -1,6 +1,6 @@
 title: Clean Init
 
-Tangles out to ~/.config/emacs/init.el (and, in one particular instance early-init.el). See note under [[*Tangle on Save]] for information to how to automatically tangle this file to its destination when saving.
+Tangles out to ~/.config/emacs/init.el (and, in one particular instance early-init.el). See note under [[*Tangle on Save]] (github will break this link) for information to how to automatically tangle this file to its destination when saving.
 
 Default header args for all blocks (aside from the one to early-init.el) is
 
