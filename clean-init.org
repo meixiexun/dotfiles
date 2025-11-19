@@ -1,1 +1,684 @@
-#+title: Clean InitTangles out to ~/.config/emacs/init.el (and, in one particular instance early-init.el). See note under [[*Tangle on Save]] for information to how to automatically tangle this file to its destination when saving.Default header args for all blocks (aside from the one to early-init.el) isemacs-lisp :tangle ~/.config/emacs/init.el :mkdirp yesJust noting this here because I will forget at some point. * Init:PROPERTIES::visibility: children:header-args: emacs-lisp :tangle ~/.config/emacs/init.el :mkdirp yes:END:** Lexical BindingThis stuff goes at the top of the file. Just yak-shaving. Has to be the first line in the file for reasons I'm not 100% sure on. #+begin_src emacs-lisp  ;;; -*- lexical-binding: t -*-#+end_src** Bootstrapping Straight.elStraight.el offers more flexible control of packages. This bit of code will disable emacs' built in package manager and then install straight.el if it's not. *** Early-InitDisables use-package. This block tangles to early-init.el. #+begin_src emacs-lisp :tangle ~/.config/emacs/early-init.el :mkdirp yes  ;;; -*- lexical-binding: t -*-  (setq package-enable-at-startup nil)  ;; this block's header:  ;; src emacs-lisp :tangle ~/.config/emacs/early-init.el :mkdirp yes#+end_src*** Bootstrap codeCode required to set-up and use straight.el instead of use-package. Installs use-package (package configuration syntax I'm used to) but then has any use-package calls made to straight.el instead.#+begin_src emacs-lisp  (defvar bootstrap-version)   (let ((bootstrap-file          (expand-file-name           "straight/repos/straight.el/bootstrap.el"           (or (bound-and-true-p straight-base-dir)               user-emacs-directory)))         (bootstrap-version 7))     (unless (file-exists-p bootstrap-file)       (with-current-buffer           (url-retrieve-synchronously            "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"            'silent 'inhibit-cookies)         (goto-char (point-max))         (eval-print-last-sexp)))     (load bootstrap-file nil 'nomessage))#+end_srcFinally, this bit of code will then have straight.el install use-package and intercept all calls made to it. That way I can use use-package's syntax (which is what I'm used to)#+begin_src emacs-lisp  (straight-use-package 'use-package)  (setq straight-use-package-by-default t)#+end_src** PackagesGoing to collect all the packages. It also configures these packages where logical.*** Evil and its Evil EcosystemMwahahaha. I prefer evil. I'm not a vim user; I just think modal editing works better for my brain. First though, this has to be set before loading evil. It makes evil respect visual line mode (ie, the down arrow goes by line on the screen, not line in the file)#+begin_src emacs-lisp(setq evil-respect-visual-line-mode t)#+end_srcEvil itself:evil-undo, by default, undoes everything since the last time you entered insert mode. fine-undo will use smaller changes as undo steps.undo-limit is set really, really high because this isn't 1985 anymore and I don't have to account for the use of every byte#+begin_src emacs-lisp  (use-package evil      :init      (setq evil-want-fine-undo t            undo-limit 900000            evil-want-integration t            evil-want-keybinding nil  	  evil-undo-system 'undo-fu)      :config      (evil-mode 1))    (use-package evil-collection      :after evil      :config      (evil-collection-init))    (use-package evil-goggles      :after evil)#+end_src*** Vertico/Swiper/Orderless/Consult/MarginaliaCompletion Stack Plus Swiper.Vertico - completions menuOrderless - fzf style searching through commandsConsult - Better file menusMarginalia - Show more info about entries in verticoSwiper - In-buffer fzf style searching.I use swiper since it seems like you need to do extra work to make consult-line work like swiper. Future task TODO.#+begin_src emacs-lisp  (use-package swiper)  (use-package vertico    :config    (setq vertico-cycle t)    (setq vertico-resize nil)    (vertico-mode 1))  (use-package orderless    :custom    (completion-styles '(orderless basic)))  (use-package consult    :config    (add-to-list 'consult-buffer-filter "^\\*")) ;; hides temp files from consult-buffer  (use-package marginalia    :init    (marginalia-mode))#+end_src*** Which-keyProvides branching menus for keypresses#+begin_src emacs-lisp(use-package which-key  :init (which-key-mode)  :diminish which-key-mode  :config  (setq which-key-idle-delay 0.3))#+end_src*** HydraProvides transient keybindings. Basically mini-menus popup to with temporary keybindings to do dedicated tasks. defhydra creates a function that can be called (which I do later in keybinds). Seriously, it's really cool. #+begin_src emacs-lisp  (use-package hydra)  (defhydra hydra-text-scale (:timeout 4)    "scale text"    ("o" text-scale-increase "in")    ("k" text-scale-decrease "out")    ("f" nil "finished" :exit t))  (defhydra hydra-window-management (:timeout 8 :color pink :hint nil)    "  ^Split^            ^Move^  ^^^^^^^^-------------------------  _v_: split v      _o_: up  _h_: split h      _l_: down  _q_: close        _k_: left  _Q_: close others _;_: right  "    ("v" evil-window-vsplit)    ("h" evil-window-split)    ("q" evil-window-delete)    ("Q" delete-other-windows)    (";" evil-window-right)    ("o" evil-window-up)    ("l" evil-window-down)    ("k" evil-window-left)    ("f" nil "finished" :exit t))#+end_src*** FlycheckNot fully configured yet; but this will get basic syntax checking done.#+begin_src emacs-lisp(use-package flycheck  :diminish flycheck-mode  :config  (flycheck-mode t))#+end_src*** MagitIs it Mag-it or Maggot?#+begin_src emacs-lisp(use-package magit)#+end_src** Assorted other packagesMost of these are fairly self-explanatory. #+begin_src emacs-lisp  (use-package vterm)  (use-package vterm-toggle)  (use-package fish-mode)  (use-package smartparens    :hook    (prog-mode . smartparens-mode))  (require 'smartparens-config)  (use-package general) ;; for binding. binds declared later in the file  (use-package docker-compose-mode)  (use-package systemd)  (use-package hl-todo    :hook    (org-mode . hl-todo-mode))  (use-package undo-fu)  (use-package spacious-padding    :config    (spacious-padding-mode))  (use-package parrot)  (use-package zone-nyan    :config    (setq zone-programs [zone-nyan])    (setq zone-timer 120))  (use-package writeroom-mode)  (use-package emojify)  (use-package restart-emacs)#+end_src** Org and Org-EcosystemLets be honest here, this is the real star of the show*** Org#+begin_src emacs-lisp(use-package org ;; makes org happen      :custom      (org-startup-with-inline-images t)      (org-startup-indented t)      (org-startup-folded t))(use-package org-modern ;; makes org pretty      :custom      (org-modern-star '("◉" "○" "◈" "◇" "*" "◇" "*"))      (org-ellipsis " ▼")      (org-auto-align-tags nil)      (org-tags-column 0)      (org-fold-catch-invisible-edits 'show-and-error)      (org-special-ctrl-a/e t)      (org-insert-heading-respect-content t)      (org-hide-emphasis-markers t)      (org-pretty-entities t)      :config      (global-org-modern-mode))   (use-package org-appear ;; makes org a bit sneakier      :hook      (org-mode . org-appear-mode)      :custom      (org-hide-emphasis-markers t)      (org-appear-autolinks 'just-brackets))#+end_src*** Org-BabelTODO: Work in progress#+begin_src emacs-lisp    (with-eval-after-load 'org      (org-babel-do-load-languages       'org-babel-load-languages       '((emacs-lisp . t))))  (require 'org-tempo)  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))  (add-to-list 'org-structure-template-alist '("fi" . "src fish"))  (add-to-list 'org-structure-template-alist '("co" . "src conf-unix"))  (add-to-list 'org-structure-template-alist '("cs" . "src css"))  (add-to-list 'org-structure-template-alist '("js" . "src json"))  (add-to-list 'org-structure-template-alist '("sd" . "src systemd"))  (add-to-list 'org-structure-template-alist '("dc" ."docker-compose-mode"))#+end_src*** Org-RoamThis is still a work in progress. I'm transitioning (heh) to org-roam and am working on building this environment.Binds are all declared later.#+begin_src emacs-lisp  (use-package org-roam    :custom    (org-roam-directory "~/org/roam")    :config    (org-roam-db-autosync-enable))#+end_src**** Org-Roam Capture TemplatesI'm still working on these.#+begin_src emacs-lisp(setq org-roam-capture-templates   '(("d" "default" plain      "%?"      :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")      :unnarrowed t)     ("b" "book notes" plain       "\n* Source\n\nAuthor: %^{Author}\nTitle: ${title}\nYear: %^{Year}\n\n* Summary\n\n%?"      :if-new (file+head "book-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")      :unnarrowed t)     ("l" "linux notes" plain      "\n* %^{Subject}\n\n%?"      :if-new (file+head "linux-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")      :unarrowed t)     ))#+end_src*** Org Utilities**** Org-DownloadSome of this is build into emacs now, some of this config is kind of old. I need to go through and figure out how much I still need.Most importantly, it will check which DE or WM I'm in and adjust how it takes screenshots. I only use Hyprland and KDE so I'm using an either/or right now. #+begin_src emacs-lisp  (use-package org-download)  (setq org-download-image-dir "~/org/pictures")  ;; check if on hyprland or kde and set setting accordingly  (if (equal (shell-command-to-string "echo $XDG_CURRENT_DESKTOP")  	   "Hyprland\n")      (setq org-download-screenshot-method "slurp")    (setq org-download-screenshot-method "spectacle"))   (add-hook 'dired-mode-hook 'org-download-enable) #+end_src** User Interface and SettingsNow that we have all of the packages we want configured, let's build ourselves a user-interface. *** User Interface CleanupI prefer a largely keyboard driven emacs. This will turn off user-interface elements meant for the mouse. Additional tweaks have been commented. #+begin_src emacs-lisp  (scroll-bar-mode -1)  (tool-bar-mode -1)  (menu-bar-mode -1)  (tooltip-mode -1)  (set-fringe-mode 20) ;; spacing to L/R of a window  (setq use-dialog-box nil) ;; if emacs ever prompts for user input, it'll ask in the minibuffer instead of a y/n dialog box#+end_src*** General Settings TweaksMinor tweaks to built in emacs functionality**** End Sentences on Single SpaceEmacs looks for a period followed by two spaces to indicate the end of a sentence for kill-sentence and backwards-kill-sentence. I don't write like that so this tells it to just look for a period and a single space. #+begin_src emacs-lisp(setq sentence-end-double-space nil)#+end_src**** Interprogram Paste Before KillIf something is in the system clipboard when you kill something in emacs, this will tell emacs to save the system clipboard to the kill-ring before killing the thing in emacs. (For the record, for those reading: killing means 'cutting', basically.)#+begin_src emacs-lisp(setq save-interprogram-paste-before-kill t)#+end_src**** Set ShellI use fish-shell. This will set it to open that instead of bash in terminal buffers like vterm.#+begin_src emacs-lisp  (setq shell-file-name "/bin/fish"        sh-shell "/bin/fish")#+end_src**** Switch to Help Buffer on OpenWhen opening documentation buffer (describe-key, describe-variable, etc) focus is switched to the new window. Q will close that window.#+begin_src emacs-lisp(setq help-window-select t)#+end_src**** Overwrite modeMakes entered text erase highlighted region. Basically emulates the behavior of more modern word processors.I originally preferred this but honestly I'm kinda in love with the default behavior now? Things deleted with this mode on don't get saved to the kill-ring and I kinda like having a persistent history of deletions. M-W will kill the selection. Leaving this here if I ever decide I want to change my mind. #+begin_src emacs-lisp;;  (delete-selection-mode t)#+end_src**** Keeping emacs directory cleanBy default, emacs keeps backup files in the documents' directory. This creates a lot of clutter and isn't ideal for stow/git/etc. Honestly, I'm not 100% sure I *need* backups, but at least this will keep them contained somewhere else. I also decide to keep an increased number of backups.I'll probably delete this when I have a more robust form of version control on this file but I'm making a lot of changes very quickly as I flesh this file out. #+begin_src emacs-lisp  (setq backup-directory-alist '(("." . "~/.saves")))  (setq delete-old-versions t        kept-new-versions 6        kept-old-versions 2        version-control t)#+end_srcThis, in turn, will turn off the backup functionality entirely. Just putting it here so I don't have to look for it later in case I want to do it.#+begin_src emacs-lisp;; (setq make-backup-files nil)#+end_srcYou can also move emacs autosaves too by editing the auto-save variable but I don't mind them in the emacs directory since emacs will clean them up when needed.*** Word WrapI generally like (non-destructive) word wrap on in everything. The rare times I want it off, I'll manually trigger it off for a specific buffer.The first command enables it globally. The second command tells emacs to wrap words on whitespace; otherwise emacs will just cut words to fit at the end of lines. #+begin_src emacs-lisp  (global-visual-line-mode)  (global-word-wrap-whitespace-mode t)#+end_src*** HL-Line Modehl-line-mode will highlight the active line with a slight color change. I want it enabled globally EXCEPT disabled in terminal buffers.#+begin_src emacs-lisp  (global-hl-line-mode)  (dolist (mode '(term-mode-hook                  eshell-mode-hook  		vterm-mode-hook))    (add-hook mode (lambda () (hl-line-mode -1))))#+end_src*** RecentfKeeps a list of recently accessed files.#+begin_src emacs-lisp(recentf-mode)#+end_srcrecentf will only write to the list when emacs is closed gracefully. This will save/update the list every five minutes instead.#+begin_src emacs-lisp(run-at-time nil (* 5 60) 'recentf-save-list)#+end_src*** Line NumbersEnable lines numbers globally, then disables them for certain modes. Easier to do it that way than having to add a hook if I ever add new modes I want line numbers in. #+begin_src emacs-lisp  (global-display-line-numbers-mode t)  (dolist (mode '(org-mode-hook                  term-mode-hook                  eshell-mode-hook  		vterm-mode-hook))    (add-hook mode (lambda () (display-line-numbers-mode 0))))#+end_src*** ThemeYeah, it's catppuccin. I'm basic.#+begin_src emacs-lisp(use-package catppuccin-theme  :custom  (catppuccin-flavor 'macchiato))(load-theme 'catppuccin t)#+end_src*** Fonts and relatedSet font to Fira Mono. Install all-the-icons (if not found)#+begin_src emacs-lisp  (set-face-attribute 'default nil :font "Fira Mono" :height 110)  (set-face-attribute 'variable-pitch nil :font "Fira Sans" :height 110)  (use-package all-the-icons    :if (display-graphic-p)    :init    (unless (find-font (font-spec :name "all-the-icons"))      (all-the-icons-install-fonts t)))  (use-package all-the-icons-dired    :if (display-graphic-p)    :hook (dired-mode . all-the-icons-dired-mode))  (use-package all-the-icons-completion    :if (display-graphic-p)    :init (all-the-icons-completion-mode)    :hook (marginalia-mode . all-the-icons-completion-marginalia-setup))#+end_src*** Doom-ModelineDoom-Modeline is a finnicky bitch but I don't mind it.I run a pared down modeline. Doom-modeline-def-modeline defines my custom modeline (the mei-dline). The bar segment is necessary to be able to control the modeline's height, but setting its width to 1 will (almost) hide it. The custom-set-faces block will make what little of the bar is visible match the background of the bar so it is invisible. These colors will have to be hand-altered if you change themes. I also like nyan-mode for buffer position since it's cute#+begin_src emacs-lisp     (use-package doom-modeline       :custom       (doom-modeline-height 40) ;; chonk       (doom-modeline-bar-width 1) ;; not chonk       (doom-modeline-percent-position nil))     ;; define the custom modeline     (doom-modeline-def-modeline 'mei-dline ;; doom-modeline-height won't work without the bar present       '(bar modals parrot matches buffer-info buffer-position)       '(remote-host selection-info vcs check major-mode))     ;;make the mei-dline default     (add-hook 'doom-modeline-mode-hook     	  (lambda ()     	    (doom-modeline-set-modeline 'mei-dline 'default)))     (setq doom-modeline-mode-alist nil)    (custom-set-faces      '(mode-line ((t (:background "#1E2030" :foreground "#666666"))))     '(doom-modeline-bar ((t (:background "#24273A" :inherit mode-line))))) ;; makes the bar segment match the background (invisible) in active window. White in in-active window. Will have to be changed if I ever change themes    (use-package nyan-mode      :init      (nyan-mode 1)      (setq nyan-bar-length 30)      :config      (nyan-toggle-wavy-trail)      (nyan-start-animation)) ;; nya-nya-nya-nya-nyanyanya        (doom-modeline-mode 1) ;; make it do   #+end_src*** DashboardI dunno. I like a pretty little picture when I start up emacs.#+begin_src emacs-lisp  (use-package minimal-dashboard    :init    (setq minimal-dashboard-image-path "~/emacs-forge/pandaz2.png")    (setq initial-buffer-choice #'minimal-dashboard))#+end_src** Binds*** Unsetting KeybindsBefore we start binding keys, we have to unbind some keys. I have some unorthodox keybinds that I'm used to, so we have to train emacs to my eccentricies. I find it easier to unset them all here at the top of the bindings section so they're all in one place. keymap-unset is used surgically when I can. global-unset-key is used like a nuclear missile when I can't. #+begin_src emacs-lisp  (keymap-unset outline-mode-map "<normal-state> M-k")  (keymap-unset outline-mode-map "<normal-state> M-l")  (keymap-unset outline-mode-map "<normal-state> M-o")  (global-unset-key (kbd "M-;"))  (global-unset-key (kbd "M-q"))#+end_srcNow that the binds I don't want are cleaned up, lets do the binds that I do want. *** ESC as a global quitThis will make ESC a quit out of any menu. Mimics the behavior of ESC also quitting back out of Insert mode for consistency. #+begin_src emacs-lisp (global-set-key (kbd "<escape>") 'keyboard-escape-quit) #+end_src*** Space as Leader and submenusAll of these use SPC (or M-SPC if in insert mode) as a prefix and then branch off. Menus are built using which-key. #+begin_src emacs-lisp  (general-create-definer mei/leader-keys    :keymaps '(normal insert visual emacs)    :prefix "SPC"    :global-prefix "M-SPC")  (mei/leader-keys   "f" '(:ignore f :which-key "file")   "fs" '(save-buffer :which-key "save buffer")   "ff" '(find-file :which-key "open file")   "fr" '(consult-recent-file :which-key "recent file")   "b" '(:ignore b :which-key "buffer")   "bb" '(consult-buffer :which-key "switch buffer")   "bk" '(kill-current-buffer :which-key "kill buffer")   "bl" '(evil-switch-to-windows-last-buffer :which-key "last buffer")   "bz" '(bury-buffer :which-key "bury buffer")   "bx" '(scratch-buffer :which-key "scratch buffer")   "s" '(:ignore s :which-key "search")   "sb" '(swiper :which-key "search buffer")   "sm" '(bookmark-jump :which-key "jump to bookmark")   "sM" '(bookmark-set :which-key "set a bookmark")   "e" '(:ignore e :which-key "eval")   "e;" '(eval-expression :which-key "expression")   "ee" '(eval-last-sexp :which-key "eval last expression")   "eb" '(eval-buffer :which-key "eval buffer")   "q" '(:ignore q :which-key "quit and session")   "qq" '(evil-quit :which-key "quit frame")   "h" '(:ignore h :which-key "help")   "hf" '(describe-function :which-key "describe function")   "hk" '(describe-key-briefly :which-key "describe key briefly")   "hK" '(describe-key :which-key "describe key full")   "hv" '(describe-variable :which-key "describe variable")   "c" '(:ignore c :which-key "comments")   "cr" '(comment-or-uncomment-region :which-key "comment region")   "cl" '(comment-line :which-key "comment line")   "w" '(:ignore w :which-key "window")   "wq" '(evil-quit :which-key "evil-quit")   "wT" '(tear-off-window :which-key "tear off window")   "wo" '(evil-window-up :which-key "move up a window")   "g" '(magit-status :which-key "magit")   "r" '(:ignore r :which-key "org-roam")   "r i" '(org-roam-node-insert :which-key "insert org-roam node")   "r f" '(org-roam-node-find :which-key "find org-roam node")   "r l" '(org-roam-buffer-toggle :which-key "toggle org-roam buffer")   "t" '(:ignore t :which-key "toggle")   "t v" '(mei/variable-toggle :which-key "variable-pitch mode")   "t z" '(mei/zen-mode-toggle :which-key "zen-mode")   "i" '(:ignore i :which-key "insert")   "ie" '(emoji-search :which-key "emoji")   )#+end_src*** Global KeybindsKeybinds that I want to work whenever and wherever I am. #+begin_src emacs-lisp  (general-define-key     :keymaps 'global    "M-y" 'consult-yank-pop ;; paste (text)    "M-Y" 'org-download-clipboard ;; paste (media)    "M-w" 'kill-ring-save ;; copy    "M-W" 'kill-region ;; cut (selection)    "<f2>" 'hydra-text-scale/body    "<f3>" 'vterm-toggle    "<f5>" 'hydra-window-management/body    "C-x <deletechar>" 'kill-sentence    "C-x DEL" 'backward-kill-sentence)#+end_src*** Movement KeybindsThis is probably some kind of heresy, but I just can't do the hjkl movement that seems the default to vim (and by extension, evil-mode). My fingers just naturally reach out for a WASD shape, so we're going to be doing some rebinding here to get the behavior I prefer.#+begin_src emacs-lisp  (general-define-key   :states 'normal   "o" 'evil-previous-visual-line   "k" 'evil-backward-char   ";" 'evil-forward-char   "l" 'evil-next-visual-line)   (general-define-key   :states '(normal emacs insert)   "M-k" 'evil-beginning-of-line   "M-;" 'evil-end-of-line   "M-e" 'evil-forward-sentence-begin   "M-q" 'evil-backward-sentence-begin)#+end_src*** Other KeybindsMy brain is too hardwired to have undo/redo on anything but C-z/y so I need to move emacs-evil-state keys around.A bunch of other minor changes. #+begin_src emacs-lisp  (general-define-key   :states '(normal insert)   "C-_" 'evil-emacs-state    "M-o" 'evil-open-below)  (general-define-key   :states 'emacs   "C-_" 'evil-normal-state)  (general-define-key   :states '(normal insert emacs)     "C-z" 'evil-undo     "C-y" 'evil-redo     "C-e" 'evil-forward-sentence-begin)#+end_src** Functions*** Tangle on SaveI found this function from Emacs-From-Scratch. You have to manually tangle yourself the first time to get the function into your init.el. Once it's loaded then everytime you save this file, it will auto-tangle to the destinations. #+begin_src emacs-lisp :tangle ~/.config/emacs/init.el :mkdirp yes(defun efs/org-babel-tangle-config ()  (when (string-equal (buffer-file-name)                      (expand-file-name "~/.config/emacs/clean-init.org"))    ;; Dynamic scoping to the rescue      (org-babel-tangle)))(add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))#+END_src*** Variable-pitch-mode toggle Not sure if checking buffer-face-mode is the right call here, but I don't know where else variable-pitch-mode is listed as on/off#+begin_src emacs-lisp    (defun mei/variable-toggle ()        "Toggle variable-pitch-mode"        (interactive)      (if (bound-and-true-p buffer-face-mode) ;; if buffer-face-mode is bound and true  	(variable-pitch-mode -1) ;; turn variable-pitch-mode off        (variable-pitch-mode t))) ;; otherwise turn it on#+end_src*** Zen ModeThis is something of a kludgy recreation of Doom's Zen Mode which, as far as I can tell, is just a bunch of toggles. - Toggles on Writeroom mode (full-screens window) - Toggles variable-width-font mode - Scales text appropriately (or resets it to normal)#+begin_src emacs-lisp  (defun mei/zen-mode-on ()    "Turn 'zen' mode on"    (interactive)    (setq zen-mode-on t)    (mei/variable-toggle)    (text-scale-mode 1)    (text-scale-set 5)    (writeroom-mode 1))  (defun mei/zen-mode-off ()    "Turn 'zen' mode off"    (interactive)    (setq zen-mode-on nil)    (writeroom-mode -1)    (mei/variable-toggle)    (text-scale-mode -1))      (defun mei/zen-mode-toggle ()      "Toggle zen-mode"      (interactive)      (if (bound-and-true-p zen-mode-on)          (mei/zen-mode-off)        (mei/zen-mode-on)))        #+end_src
+title: Clean Init
+
+Tangles out to ~/.config/emacs/init.el (and, in one particular instance early-init.el). See note under [[*Tangle on Save]] for information to how to automatically tangle this file to its destination when saving.
+
+Default header args for all blocks (aside from the one to early-init.el) is
+
+emacs-lisp :tangle ~/.config/emacs/init.el :mkdirp yes
+
+Just noting this here because I will forget at some point. 
+
+* Init
+:PROPERTIES:
+:visibility: children
+:header-args: emacs-lisp :tangle ~/.config/emacs/init.el :mkdirp yes
+:END:
+** Lexical Binding
+This stuff goes at the top of the file. Just yak-shaving. Has to be the first line in the file for reasons I'm not 100% sure on. 
+#+begin_src emacs-lisp
+  ;;; -*- lexical-binding: t -*-
+#+end_src
+** Bootstrapping Straight.el
+Straight.el offers more flexible control of packages. This bit of code will disable emacs' built in package manager and then install straight.el if it's not. 
+*** Early-Init
+Disables use-package. This block tangles to early-init.el. 
+#+begin_src emacs-lisp :tangle ~/.config/emacs/early-init.el :mkdirp yes
+  ;;; -*- lexical-binding: t -*-
+  (setq package-enable-at-startup nil)
+  ;; this block's header:
+  ;; src emacs-lisp :tangle ~/.config/emacs/early-init.el :mkdirp yes
+#+end_src
+*** Bootstrap code
+Code required to set-up and use straight.el instead of use-package. 
+Installs use-package (package configuration syntax I'm used to) but then has any use-package calls made to straight.el instead.
+#+begin_src emacs-lisp
+  (defvar bootstrap-version)
+   (let ((bootstrap-file
+          (expand-file-name
+           "straight/repos/straight.el/bootstrap.el"
+           (or (bound-and-true-p straight-base-dir)
+               user-emacs-directory)))
+         (bootstrap-version 7))
+     (unless (file-exists-p bootstrap-file)
+       (with-current-buffer
+           (url-retrieve-synchronously
+            "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+            'silent 'inhibit-cookies)
+         (goto-char (point-max))
+         (eval-print-last-sexp)))
+     (load bootstrap-file nil 'nomessage))
+#+end_src
+
+Finally, this bit of code will then have straight.el install use-package and intercept all calls made to it. That way I can use use-package's syntax (which is what I'm used to)
+#+begin_src emacs-lisp
+  (straight-use-package 'use-package)
+  (setq straight-use-package-by-default t)
+#+end_src
+
+** Packages
+Going to collect all the packages. It also configures these packages where logical.
+*** Evil and its Evil Ecosystem
+Mwahahaha. I prefer evil. I'm not a vim user; I just think modal editing works better for my brain. 
+
+First though, this has to be set before loading evil. It makes evil respect visual line mode (ie, the down arrow goes by line on the screen, not line in the file)
+
+#+begin_src emacs-lisp
+(setq evil-respect-visual-line-mode t)
+#+end_src
+
+Evil itself:
+
+evil-undo, by default, undoes everything since the last time you entered insert mode. fine-undo will use smaller changes as undo steps.
+
+undo-limit is set really, really high because this isn't 1985 anymore and I don't have to account for the use of every byte
+
+#+begin_src emacs-lisp
+  (use-package evil
+      :init
+      (setq evil-want-fine-undo t
+            undo-limit 900000
+            evil-want-integration t
+            evil-want-keybinding nil
+  	  evil-undo-system 'undo-fu)
+      :config
+      (evil-mode 1))
+
+    (use-package evil-collection
+      :after evil
+      :config
+      (evil-collection-init))
+
+    (use-package evil-goggles
+      :after evil)
+#+end_src
+*** Vertico/Swiper/Orderless/Consult/Marginalia
+Completion Stack Plus Swiper.
+
+Vertico - completions menu
+Orderless - fzf style searching through commands
+Consult - Better file menus
+Marginalia - Show more info about entries in vertico
+Swiper - In-buffer fzf style searching.
+
+I use swiper since it seems like you need to do extra work to make consult-line work like swiper. Future task TODO.
+#+begin_src emacs-lisp
+  (use-package swiper)
+  (use-package vertico
+    :config
+    (setq vertico-cycle t)
+    (setq vertico-resize nil)
+    (vertico-mode 1))
+  (use-package orderless
+    :custom
+    (completion-styles '(orderless basic)))
+  (use-package consult
+    :config
+    (add-to-list 'consult-buffer-filter "^\\*")) ;; hides temp files from consult-buffer
+  (use-package marginalia
+    :init
+    (marginalia-mode))
+#+end_src
+*** Which-key
+Provides branching menus for keypresses
+#+begin_src emacs-lisp
+(use-package which-key
+  :init (which-key-mode)
+  :diminish which-key-mode
+  :config
+  (setq which-key-idle-delay 0.3))
+#+end_src
+*** Hydra
+Provides transient keybindings. Basically mini-menus popup to with temporary keybindings to do dedicated tasks. defhydra creates a function that can be called (which I do later in keybinds). Seriously, it's really cool. 
+
+#+begin_src emacs-lisp
+  (use-package hydra)
+
+  (defhydra hydra-text-scale (:timeout 4)
+    "scale text"
+    ("o" text-scale-increase "in")
+    ("k" text-scale-decrease "out")
+    ("f" nil "finished" :exit t))
+
+  (defhydra hydra-window-management (:timeout 8 :color pink :hint nil)
+    "
+  ^Split^            ^Move^
+  ^^^^^^^^-------------------------
+  _v_: split v      _o_: up
+  _h_: split h      _l_: down
+  _q_: close        _k_: left
+  _Q_: close others _;_: right
+  "
+    ("v" evil-window-vsplit)
+    ("h" evil-window-split)
+    ("q" evil-window-delete)
+    ("Q" delete-other-windows)
+    (";" evil-window-right)
+    ("o" evil-window-up)
+    ("l" evil-window-down)
+    ("k" evil-window-left)
+    ("f" nil "finished" :exit t))
+#+end_src
+*** Flycheck
+Not fully configured yet; but this will get basic syntax checking done.
+
+#+begin_src emacs-lisp
+(use-package flycheck
+  :diminish flycheck-mode
+  :config
+  (flycheck-mode t))
+#+end_src
+*** Magit
+Is it Mag-it or Maggot?
+#+begin_src emacs-lisp
+(use-package magit)
+#+end_src
+** Assorted other packages
+Most of these are fairly self-explanatory. 
+
+#+begin_src emacs-lisp
+  (use-package vterm)
+  (use-package vterm-toggle)
+  (use-package fish-mode)
+  (use-package smartparens
+    :hook
+    (prog-mode . smartparens-mode))
+  (require 'smartparens-config)
+  (use-package general) ;; for binding. binds declared later in the file
+  (use-package docker-compose-mode)
+  (use-package systemd)
+  (use-package hl-todo
+    :hook
+    (org-mode . hl-todo-mode))
+  (use-package undo-fu)
+  (use-package spacious-padding
+    :config
+    (spacious-padding-mode))
+  (use-package parrot)
+  (use-package zone-nyan
+    :config
+    (setq zone-programs [zone-nyan])
+    (setq zone-timer 120))
+  (use-package writeroom-mode)
+  (use-package emojify)
+  (use-package restart-emacs)
+#+end_src
+** Org and Org-Ecosystem
+Lets be honest here, this is the real star of the show
+*** Org
+#+begin_src emacs-lisp
+(use-package org ;; makes org happen
+      :custom
+      (org-startup-with-inline-images t)
+      (org-startup-indented t)
+      (org-startup-folded t))
+
+(use-package org-modern ;; makes org pretty
+      :custom
+      (org-modern-star '("◉" "○" "◈" "◇" "*" "◇" "*"))
+      (org-ellipsis " ▼")
+      (org-auto-align-tags nil)
+      (org-tags-column 0)
+      (org-fold-catch-invisible-edits 'show-and-error)
+      (org-special-ctrl-a/e t)
+      (org-insert-heading-respect-content t)
+      (org-hide-emphasis-markers t)
+      (org-pretty-entities t)
+      :config
+      (global-org-modern-mode))
+
+   (use-package org-appear ;; makes org a bit sneakier
+      :hook
+      (org-mode . org-appear-mode)
+      :custom
+      (org-hide-emphasis-markers t)
+      (org-appear-autolinks 'just-brackets))
+
+#+end_src
+*** Org-Babel
+TODO: Work in progress
+
+
+#+begin_src emacs-lisp
+    (with-eval-after-load 'org
+      (org-babel-do-load-languages
+       'org-babel-load-languages
+       '((emacs-lisp . t))))
+
+  (require 'org-tempo)
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
+  (add-to-list 'org-structure-template-alist '("fi" . "src fish"))
+  (add-to-list 'org-structure-template-alist '("co" . "src conf-unix"))
+  (add-to-list 'org-structure-template-alist '("cs" . "src css"))
+  (add-to-list 'org-structure-template-alist '("js" . "src json"))
+  (add-to-list 'org-structure-template-alist '("sd" . "src systemd"))
+  (add-to-list 'org-structure-template-alist '("dc" ."docker-compose-mode"))
+
+#+end_src
+*** Org-Roam
+This is still a work in progress. I'm transitioning (heh) to org-roam and am working on building this environment.
+
+Binds are all declared later.
+#+begin_src emacs-lisp
+  (use-package org-roam
+    :custom
+    (org-roam-directory "~/org/roam")
+    :config
+    (org-roam-db-autosync-enable))
+#+end_src
+**** Org-Roam Capture Templates
+I'm still working on these.
+
+#+begin_src emacs-lisp
+(setq org-roam-capture-templates
+   '(("d" "default" plain
+      "%?"
+      :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+      :unnarrowed t)
+     ("b" "book notes" plain
+       "\n* Source\n\nAuthor: %^{Author}\nTitle: ${title}\nYear: %^{Year}\n\n* Summary\n\n%?"
+      :if-new (file+head "book-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+      :unnarrowed t)
+     ("l" "linux notes" plain
+      "\n* %^{Subject}\n\n%?"
+      :if-new (file+head "linux-notes/%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+      :unarrowed t)
+
+     ))
+
+#+end_src
+*** Org Utilities
+**** Org-Download
+Some of this is build into emacs now, some of this config is kind of old. I need to go through and figure out how much I still need.
+
+Most importantly, it will check which DE or WM I'm in and adjust how it takes screenshots. I only use Hyprland and KDE so I'm using an either/or right now. 
+#+begin_src emacs-lisp
+  (use-package org-download)
+  (setq org-download-image-dir "~/org/pictures")
+  ;; check if on hyprland or kde and set setting accordingly
+  (if (equal (shell-command-to-string "echo $XDG_CURRENT_DESKTOP")
+  	   "Hyprland\n")
+      (setq org-download-screenshot-method "slurp")
+    (setq org-download-screenshot-method "spectacle")) 
+  (add-hook 'dired-mode-hook 'org-download-enable) 
+#+end_src
+** User Interface and Settings
+Now that we have all of the packages we want configured, let's build ourselves a user-interface. 
+*** User Interface Cleanup
+I prefer a largely keyboard driven emacs. This will turn off user-interface elements meant for the mouse. Additional tweaks have been commented. 
+#+begin_src emacs-lisp
+  (scroll-bar-mode -1)
+  (tool-bar-mode -1)
+  (menu-bar-mode -1)
+  (tooltip-mode -1)
+  (set-fringe-mode 20) ;; spacing to L/R of a window
+  (setq use-dialog-box nil) ;; if emacs ever prompts for user input, it'll ask in the minibuffer instead of a y/n dialog box
+#+end_src
+*** General Settings Tweaks
+Minor tweaks to built in emacs functionality
+**** End Sentences on Single Space
+Emacs looks for a period followed by two spaces to indicate the end of a sentence for kill-sentence and backwards-kill-sentence. I don't write like that so this tells it to just look for a period and a single space. 
+#+begin_src emacs-lisp
+(setq sentence-end-double-space nil)
+#+end_src
+**** Interprogram Paste Before Kill
+If something is in the system clipboard when you kill something in emacs, this will tell emacs to save the system clipboard to the kill-ring before killing the thing in emacs. (For the record, for those reading: killing means 'cutting', basically.)
+
+#+begin_src emacs-lisp
+(setq save-interprogram-paste-before-kill t)
+#+end_src
+
+**** Set Shell
+I use fish-shell. This will set it to open that instead of bash in terminal buffers like vterm.
+#+begin_src emacs-lisp
+  (setq shell-file-name "/bin/fish"
+        sh-shell "/bin/fish")
+#+end_src
+
+**** Switch to Help Buffer on Open
+When opening documentation buffer (describe-key, describe-variable, etc) focus is switched to the new window. Q will close that window.
+#+begin_src emacs-lisp
+(setq help-window-select t)
+#+end_src
+
+**** Overwrite mode
+Makes entered text erase highlighted region. Basically emulates the behavior of more modern word processors.
+
+I originally preferred this but honestly I'm kinda in love with the default behavior now? Things deleted with this mode on don't get saved to the kill-ring and I kinda like having a persistent history of deletions. M-W will kill the selection. Leaving this here if I ever decide I want to change my mind. 
+#+begin_src emacs-lisp
+;;  (delete-selection-mode t)
+#+end_src
+
+**** Keeping emacs directory clean
+By default, emacs keeps backup files in the documents' directory. This creates a lot of clutter and isn't ideal for stow/git/etc. Honestly, I'm not 100% sure I *need* backups, but at least this will keep them contained somewhere else. I also decide to keep an increased number of backups.
+
+I'll probably delete this when I have a more robust form of version control on this file but I'm making a lot of changes very quickly as I flesh this file out. 
+#+begin_src emacs-lisp
+  (setq backup-directory-alist '(("." . "~/.saves")))
+
+  (setq delete-old-versions t
+        kept-new-versions 6
+        kept-old-versions 2
+        version-control t)
+#+end_src
+This, in turn, will turn off the backup functionality entirely. Just putting it here so I don't have to look for it later in case I want to do it.
+#+begin_src emacs-lisp
+;; (setq make-backup-files nil)
+#+end_src
+You can also move emacs autosaves too by editing the auto-save variable but I don't mind them in the emacs directory since emacs will clean them up when needed.
+
+*** Word Wrap
+I generally like (non-destructive) word wrap on in everything. The rare times I want it off, I'll manually trigger it off for a specific buffer.
+
+The first command enables it globally. The second command tells emacs to wrap words on whitespace; otherwise emacs will just cut words to fit at the end of lines. 
+#+begin_src emacs-lisp
+  (global-visual-line-mode)
+  (global-word-wrap-whitespace-mode t)
+#+end_src
+
+*** HL-Line Mode
+hl-line-mode will highlight the active line with a slight color change. I want it enabled globally EXCEPT disabled in terminal buffers.
+
+#+begin_src emacs-lisp
+  (global-hl-line-mode)
+  (dolist (mode '(term-mode-hook
+                  eshell-mode-hook
+  		vterm-mode-hook))
+    (add-hook mode (lambda () (hl-line-mode -1))))
+#+end_src
+
+*** Recentf
+Keeps a list of recently accessed files.
+#+begin_src emacs-lisp
+(recentf-mode)
+#+end_src
+recentf will only write to the list when emacs is closed gracefully. This will save/update the list every five minutes instead.
+#+begin_src emacs-lisp
+(run-at-time nil (* 5 60) 'recentf-save-list)
+#+end_src
+
+*** Line Numbers
+Enable lines numbers globally, then disables them for certain modes. Easier to do it that way than having to add a hook if I ever add new modes I want line numbers in. 
+#+begin_src emacs-lisp
+  (global-display-line-numbers-mode t)
+  (dolist (mode '(org-mode-hook
+                  term-mode-hook
+                  eshell-mode-hook
+  		vterm-mode-hook))
+    (add-hook mode (lambda () (display-line-numbers-mode 0))))
+#+end_src
+*** Theme
+Yeah, it's catppuccin. I'm basic.
+#+begin_src emacs-lisp
+(use-package catppuccin-theme
+  :custom
+  (catppuccin-flavor 'macchiato))
+(load-theme 'catppuccin t)
+#+end_src
+*** Fonts and related
+Set font to Fira Mono. Install all-the-icons (if not found)
+
+#+begin_src emacs-lisp
+  (set-face-attribute 'default nil :font "Fira Mono" :height 110)
+  (set-face-attribute 'variable-pitch nil :font "Fira Sans" :height 110)
+
+  (use-package all-the-icons
+    :if (display-graphic-p)
+    :init
+    (unless (find-font (font-spec :name "all-the-icons"))
+      (all-the-icons-install-fonts t)))
+
+  (use-package all-the-icons-dired
+    :if (display-graphic-p)
+    :hook (dired-mode . all-the-icons-dired-mode))
+
+  (use-package all-the-icons-completion
+    :if (display-graphic-p)
+    :init (all-the-icons-completion-mode)
+    :hook (marginalia-mode . all-the-icons-completion-marginalia-setup))
+#+end_src
+*** Doom-Modeline
+Doom-Modeline is a finnicky bitch but I don't mind it.
+
+I run a pared down modeline. Doom-modeline-def-modeline defines my custom modeline (the mei-dline). The bar segment is necessary to be able to control the modeline's height, but setting its width to 1 will (almost) hide it. The custom-set-faces block will make what little of the bar is visible match the background of the bar so it is invisible. These colors will have to be hand-altered if you change themes. 
+
+I also like nyan-mode for buffer position since it's cute
+
+#+begin_src emacs-lisp
+     (use-package doom-modeline
+       :custom
+       (doom-modeline-height 40) ;; chonk
+       (doom-modeline-bar-width 1) ;; not chonk
+       (doom-modeline-percent-position nil)) 
+    ;; define the custom modeline
+     (doom-modeline-def-modeline 'mei-dline ;; doom-modeline-height won't work without the bar present
+       '(bar modals parrot matches buffer-info buffer-position)
+       '(remote-host selection-info vcs check major-mode))
+     ;;make the mei-dline default
+     (add-hook 'doom-modeline-mode-hook
+     	  (lambda ()
+     	    (doom-modeline-set-modeline 'mei-dline 'default)))
+     (setq doom-modeline-mode-alist nil)
+
+    (custom-set-faces 
+     '(mode-line ((t (:background "#1E2030" :foreground "#666666"))))
+     '(doom-modeline-bar ((t (:background "#24273A" :inherit mode-line))))) ;; makes the bar segment match the background (invisible) in active window. White in in-active window. Will have to be changed if I ever change themes
+
+
+    (use-package nyan-mode
+      :init
+      (nyan-mode 1)
+      (setq nyan-bar-length 30)
+      :config
+      (nyan-toggle-wavy-trail)
+      (nyan-start-animation)) ;; nya-nya-nya-nya-nyanyanya
+    
+    (doom-modeline-mode 1) ;; make it do
+
+   #+end_src
+*** Dashboard
+I dunno. I like a pretty little picture when I start up emacs.
+#+begin_src emacs-lisp
+  (use-package minimal-dashboard
+    :init
+    (setq minimal-dashboard-image-path "~/emacs-forge/pandaz2.png")
+    (setq initial-buffer-choice #'minimal-dashboard))
+#+end_src
+** Binds
+*** Unsetting Keybinds
+Before we start binding keys, we have to unbind some keys. I have some unorthodox keybinds that I'm used to, so we have to train emacs to my eccentricies. I find it easier to unset them all here at the top of the bindings section so they're all in one place. keymap-unset is used surgically when I can. global-unset-key is used like a nuclear missile when I can't. 
+
+#+begin_src emacs-lisp
+  (keymap-unset outline-mode-map "<normal-state> M-k")
+  (keymap-unset outline-mode-map "<normal-state> M-l")
+  (keymap-unset outline-mode-map "<normal-state> M-o")
+  (global-unset-key (kbd "M-;"))
+  (global-unset-key (kbd "M-q"))
+#+end_src
+
+Now that the binds I don't want are cleaned up, lets do the binds that I do want. 
+*** ESC as a global quit
+This will make ESC a quit out of any menu. Mimics the behavior of ESC also quitting back out of Insert mode for consistency. 
+#+begin_src emacs-lisp
+ (global-set-key (kbd "<escape>") 'keyboard-escape-quit) 
+#+end_src
+*** Space as Leader and submenus
+All of these use SPC (or M-SPC if in insert mode) as a prefix and then branch off. Menus are built using which-key. 
+
+#+begin_src emacs-lisp
+  (general-create-definer mei/leader-keys
+    :keymaps '(normal insert visual emacs)
+    :prefix "SPC"
+    :global-prefix "M-SPC")
+  (mei/leader-keys
+   "f" '(:ignore f :which-key "file")
+   "fs" '(save-buffer :which-key "save buffer")
+   "ff" '(find-file :which-key "open file")
+   "fr" '(consult-recent-file :which-key "recent file")
+
+   "b" '(:ignore b :which-key "buffer")
+   "bb" '(consult-buffer :which-key "switch buffer")
+   "bk" '(kill-current-buffer :which-key "kill buffer")
+   "bl" '(evil-switch-to-windows-last-buffer :which-key "last buffer")
+   "bz" '(bury-buffer :which-key "bury buffer")
+   "bx" '(scratch-buffer :which-key "scratch buffer")
+
+   "s" '(:ignore s :which-key "search")
+   "sb" '(swiper :which-key "search buffer")
+   "sm" '(bookmark-jump :which-key "jump to bookmark")
+   "sM" '(bookmark-set :which-key "set a bookmark")
+
+   "e" '(:ignore e :which-key "eval")
+   "e;" '(eval-expression :which-key "expression")
+   "ee" '(eval-last-sexp :which-key "eval last expression")
+   "eb" '(eval-buffer :which-key "eval buffer")
+
+   "q" '(:ignore q :which-key "quit and session")
+   "qq" '(evil-quit :which-key "quit frame")
+
+   "h" '(:ignore h :which-key "help")
+   "hf" '(describe-function :which-key "describe function")
+   "hk" '(describe-key-briefly :which-key "describe key briefly")
+   "hK" '(describe-key :which-key "describe key full")
+   "hv" '(describe-variable :which-key "describe variable")
+
+   "c" '(:ignore c :which-key "comments")
+   "cr" '(comment-or-uncomment-region :which-key "comment region")
+   "cl" '(comment-line :which-key "comment line")
+
+   "w" '(:ignore w :which-key "window")
+   "wq" '(evil-quit :which-key "evil-quit")
+   "wT" '(tear-off-window :which-key "tear off window")
+   "wo" '(evil-window-up :which-key "move up a window")
+
+   "g" '(magit-status :which-key "magit")
+
+   "r" '(:ignore r :which-key "org-roam")
+   "r i" '(org-roam-node-insert :which-key "insert org-roam node")
+   "r f" '(org-roam-node-find :which-key "find org-roam node")
+   "r l" '(org-roam-buffer-toggle :which-key "toggle org-roam buffer")
+
+   "t" '(:ignore t :which-key "toggle")
+   "t v" '(mei/variable-toggle :which-key "variable-pitch mode")
+   "t z" '(mei/zen-mode-toggle :which-key "zen-mode")
+
+   "i" '(:ignore i :which-key "insert")
+   "ie" '(emoji-search :which-key "emoji")
+   )
+
+#+end_src
+*** Global Keybinds
+Keybinds that I want to work whenever and wherever I am. 
+#+begin_src emacs-lisp
+  (general-define-key 
+    :keymaps 'global
+    "M-y" 'consult-yank-pop ;; paste (text)
+    "M-Y" 'org-download-clipboard ;; paste (media)
+    "M-w" 'kill-ring-save ;; copy
+    "M-W" 'kill-region ;; cut (selection)
+    "<f2>" 'hydra-text-scale/body
+    "<f3>" 'vterm-toggle
+    "<f5>" 'hydra-window-management/body
+    "C-x <deletechar>" 'kill-sentence
+    "C-x DEL" 'backward-kill-sentence)
+
+#+end_src
+*** Movement Keybinds
+This is probably some kind of heresy, but I just can't do the hjkl movement that seems the default to vim (and by extension, evil-mode). My fingers just naturally reach out for a WASD shape, so we're going to be doing some rebinding here to get the behavior I prefer.
+
+#+begin_src emacs-lisp
+  (general-define-key
+   :states 'normal
+   "o" 'evil-previous-visual-line
+   "k" 'evil-backward-char
+   ";" 'evil-forward-char
+   "l" 'evil-next-visual-line) 
+
+  (general-define-key
+   :states '(normal emacs insert)
+   "M-k" 'evil-beginning-of-line
+   "M-;" 'evil-end-of-line
+   "M-e" 'evil-forward-sentence-begin
+   "M-q" 'evil-backward-sentence-begin)
+#+end_src
+
+*** Other Keybinds
+My brain is too hardwired to have undo/redo on anything but C-z/y so I need to move emacs-evil-state keys around.
+
+A bunch of other minor changes. 
+#+begin_src emacs-lisp
+  (general-define-key
+   :states '(normal insert)
+   "C-_" 'evil-emacs-state 
+   "M-o" 'evil-open-below)
+
+  (general-define-key
+   :states 'emacs
+   "C-_" 'evil-normal-state)
+
+  (general-define-key
+   :states '(normal insert emacs)
+     "C-z" 'evil-undo
+     "C-y" 'evil-redo
+     "C-e" 'evil-forward-sentence-begin)
+
+#+end_src
+** Functions
+*** Tangle on Save
+
+I found this function from Emacs-From-Scratch. You have to manually tangle yourself the first time to get the function into your init.el. Once it's loaded then everytime you save this file, it will auto-tangle to the destinations. 
+
+#+begin_src emacs-lisp :tangle ~/.config/emacs/init.el :mkdirp yes
+
+(defun efs/org-babel-tangle-config ()
+  (when (string-equal (buffer-file-name)
+                      (expand-file-name "~/.config/emacs/clean-init.org"))
+    ;; Dynamic scoping to the rescue
+      (org-babel-tangle)))
+
+(add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
+#+END_src
+
+*** Variable-pitch-mode toggle 
+Not sure if checking buffer-face-mode is the right call here, but I don't know where else variable-pitch-mode is listed as on/off
+#+begin_src emacs-lisp
+    (defun mei/variable-toggle ()
+        "Toggle variable-pitch-mode"
+        (interactive)
+      (if (bound-and-true-p buffer-face-mode) ;; if buffer-face-mode is bound and true
+  	(variable-pitch-mode -1) ;; turn variable-pitch-mode off
+        (variable-pitch-mode t))) ;; otherwise turn it on
+#+end_src
+*** Zen Mode
+This is something of a kludgy recreation of Doom's Zen Mode which, as far as I can tell, is just a bunch of toggles.
+ - Toggles on Writeroom mode (full-screens window)
+ - Toggles variable-width-font mode
+ - Scales text appropriately (or resets it to normal)
+#+begin_src emacs-lisp
+  (defun mei/zen-mode-on ()
+    "Turn 'zen' mode on"
+    (interactive)
+    (setq zen-mode-on t)
+    (mei/variable-toggle)
+    (text-scale-mode 1)
+    (text-scale-set 5)
+    (writeroom-mode 1))
+
+  (defun mei/zen-mode-off ()
+    "Turn 'zen' mode off"
+    (interactive)
+    (setq zen-mode-on nil)
+    (writeroom-mode -1)
+    (mei/variable-toggle)
+    (text-scale-mode -1))
+    
+  (defun mei/zen-mode-toggle ()
+      "Toggle zen-mode"
+      (interactive)
+      (if (bound-and-true-p zen-mode-on)
+          (mei/zen-mode-off)
+        (mei/zen-mode-on)))
+        
+#+end_src
+
+
